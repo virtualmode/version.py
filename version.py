@@ -1,4 +1,4 @@
-# Task to obtain project version.
+# Script to obtain project version.
 # Author: https://github.com/virtualmode
 # Bad Python link on Linux? sudo ln -s /usr/bin/python3.10 /usr/bin/python
 Version = "1.2.0"
@@ -11,7 +11,6 @@ GitDefaultCommit = "0000000"
 GitDefaultVersion = "0.0.0.0" # General value for SemVer and assembly versions regex.
 GitVersionFile = ".version"
 GitTagRegex = "*"
-# Original regex = r"v?(?P<MAJOR>0|[1-9]\d*)\.(?P<MINOR>0|[1-9]\d*)(\.(?P<PATCH_BUILD>0|[1-9]\d*))?(\.(?P<REVISION>0|[1-9]\d*))?(?:-(?P<PRERELEASE>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<BUILDMETADATA>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 GitBaseVersionRegex = r"v?(?P<MAJOR>0|[1-9]\d*)\.(?P<MINOR>0|[1-9]\d*)(\.(?P<PATCH_BUILD>0|[1-9]\d*))?(\.(?P<REVISION>0|[1-9]\d*))?(?:-(?P<PRERELEASE>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?:(?P<BUILD>[0-9]+)\.)?(?P<BUILDMETADATA>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 GitShortShaFormat = "%h"
 GitLongShaFormat = "%H"
