@@ -1,7 +1,7 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
 # Bad Python link on Linux? sudo ln -s /usr/bin/python3.10 /usr/bin/python
-Version = "1.2.0"
+Version = "1.2.1"
 
 # Default properties.
 GitMinVersion = "2.5.0"

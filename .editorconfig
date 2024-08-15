@@ -1,0 +1,41 @@
+# Solution .editorconfig file.
+
+root = true
+
+[*,*.{cs,css,cshtml,htm,html,java,js,kt,py,razor}]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.{c,cpp,h,proc}]
+indent_style = tab
+
+[*.{csproj,vcxproj,settings,targets}]
+end_of_line = crlf
+indent_size = 2
+
+[*.{json,sh,xml}]
+indent_size = 2
+
+[*.{md,rst}]
+trim_trailing_whitespace = false
+
+[*.{pubxml,resx}]
+charset = utf-8-bom
+end_of_line = crlf
+indent_size = 2
+
+[*.{sln,tt}]
+charset = utf-8-bom
+end_of_line = crlf
+indent_style = tab
+
+[LocalizationStrings.Designer.cs]
+charset = utf-8-bom
+end_of_line = crlf
