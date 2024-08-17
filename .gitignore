@@ -72,5 +72,6 @@ Settings.StyleCop
 # IntelliJ IDEA uses its own .gitignore file in .idea folder.
 
 # Project-specific files.
+.version*
 
 # Exclusions.
