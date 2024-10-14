@@ -11,7 +11,7 @@ from os.path import abspath, isabs, isdir, dirname, exists, join
 from re import findall, match, search, sub
 from subprocess import call, check_output
 try: from subprocess import DEVNULL # Support null device for Python 2.7 and higher.
-except ImportError: DEVNULL = open(devnull, 'wb')
+except ImportError: DEVNULL = open(devnull, "wb")
 
 # Default properties.
 GIT_MIN_VERSION = "2.5.0"
@@ -21,8 +21,8 @@ GIT_COMMIT_EMPTY_SHA = "0000000"
 GIT_COMMIT_EMPTY_VERSION = "0.0.0.0" # General value for SemVer and assembly versions regex.
 GIT_PARENT_BRANCH = "main"
 GIT_TAG_REGEX = "*"
-BUILD_METADATA_REGEX = r"(?:(?P<BUILD>[0-9]+)\.)?(?:(?P<ID>[0-9a-zA-Z-]+)\.)?(?P<BRANCH>[0-9a-zA-Z-]+)\.(?P<COMMIT>[0-9a-fA-F-]+)"
-VERSION_REGEX = r"v?(?P<MAJOR>0|[1-9]\d*)\.(?P<MINOR>0|[1-9]\d*)(\.(?P<PATCH_BUILD>0|[1-9]\d*))?(\.(?P<REVISION>0|[1-9]\d*))?(?:-(?P<PRERELEASE>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<BUILD_METADATA>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
+BUILD_METADATA_REGEX = r"(?:(?P<Build>[0-9]+)\.)?(?:(?P<Id>[0-9a-zA-Z-]+)\.)?(?P<Branch>[0-9a-zA-Z-]+)\.(?P<Commit>[0-9a-fA-F-]+)"
+VERSION_REGEX = r"v?(?P<Major>0|[1-9]\d*)\.(?P<Minor>0|[1-9]\d*)(\.(?P<PatchBuild>0|[1-9]\d*))?(\.(?P<Revision>0|[1-9]\d*))?(?:-(?P<Prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<BuildMetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
 VERSION_FILE_NAME = ".version"
 
 # Define script arguments.
@@ -56,6 +56,10 @@ def Log(message):
     if args.debug:
         print(message)
 
+# Check if string is not empty.
+def IsNoneOrWhiteSpace(value):
+    return not value or value.isspace()
+
 # Run system command and get result.
 def Run(command, errorValue = None):
     def Split(command): return ["".join(tuples) for tuples in findall(r"(:?[^\"\'\s]\S*)|[\"\'](:?.*?)[\"\']", command)]
@@ -74,7 +78,7 @@ def ReadFile(fileName):
 def WriteFile(fileName, text):
     try:
         filePath = dirname(fileName) # Make directories first.
-        if filePath and not filePath.isspace() and not exists(filePath): makedirs(filePath)
+        if not IsNoneOrWhiteSpace(filePath) and not exists(filePath): makedirs(filePath)
         with open(fileName, "w") as writeFile: writeFile.write(text); return True # Create file and write.
     except: return False
 
@@ -101,9 +105,41 @@ class Version:
     def __eq__(self, other): return self.Compare(other) == 0
     def __ne__(self, other): return self.Compare(other) != 0
 
+    def __getitem__(self, key): return self.__dict__[key] if key in self.__dict__.keys() else None
+    def __setitem__(self, key, value): self.__dict__[key] = value
+
+    def Generate(self, regex, i, type, value, empty, result):
+        TYPE_EOF = 0; TYPE_ERROR = 1; TYPE_CHAR = 2; TYPE_GROUP = 3; TYPE_NAMED_GROUP = 4; TYPE_GROUP_END = 5; TYPE_LAZY_END = 6
+        def Next(regex, i, type, value): # Regex simple lexer.
+            while i < len(regex):
+                if i + 3 < len(regex) and regex[i] == "(" and regex[i + 1] == "?":
+                    j = i = i + 3 if regex[i + 2] == "P" else i + 2 # Skip P syntax.
+                    if regex[i] not in {"<", "'"}: return (regex, i, TYPE_GROUP, None)
+                    while i < len(regex):
+                        i += 1
+                        if regex[i] in {">", "'"}: return (regex, i + 1, TYPE_NAMED_GROUP, regex[j + 1:i])
+                    return (regex, i, TYPE_ERROR, None)
+                elif regex[i] == ")":
+                    if i + 1 < len(regex) and regex[i + 1] == "?": return (regex, i + 2, TYPE_LAZY_END, None) # It's not right name for the lexeme.
+                    else: return (regex, i + 1, TYPE_GROUP_END, None)
+                elif i + 1 < len(regex) and regex[i] == "\\": return (regex, i + 2, TYPE_CHAR, regex[i + 1])
+                elif regex[i].isalnum() or regex[i] in {" ", "-", "_"}: return (regex, i + 1, TYPE_CHAR, regex[i])
+                i += 1 # Other regex features are not supported.
+            return (regex, i, TYPE_EOF, None)
+
+        name = value # Save current group name.
+        while (type != TYPE_EOF):
+            regex, i, type, value = Next(regex, i, type, value)
+            if type == TYPE_GROUP or type == TYPE_NAMED_GROUP: regex, i, type, value, empty1, result1 = self.Generate(regex, i, type, value, empty, ""); empty |= empty1; result += result1
+            elif type == TYPE_GROUP_END or type == TYPE_LAZY_END:
+                if name: return (regex, i, type, value, name == None, name)
+                else: return (regex, i, type, value, False, "" if empty else result)
+            elif type == TYPE_CHAR and not name: result += value
+        return (regex, i, type, value, empty, result)
+
     def UpdateMetadata(self, build = None, id = None, branch = None, commit = None):
         # TODO Redesign this function to generate result from build metadata regular expression.
-        def Id(field, dot = True): result = str(field if field != None else ""); result += "." if dot and result and not result.isspace() else ""; return result
+        def Id(field, dot = True): result = str(field if field != None else ""); result += "." if dot and not IsNoneOrWhiteSpace(result) else ""; return result
         self.Build = self.Build if build == None else int(build); self.Id = self.Id if id == None else id; self.Branch = self.Branch if branch == None else branch; self.Commit = self.Commit if commit == None else commit
         self.BuildMetadata = Id(self.Build) + Id(self.Id) + Id(self.Branch) + Id(self.Commit, False)
 
@@ -111,15 +147,15 @@ class Version:
     def __init__(self, value = None):
         if isinstance(value, str if version_info[0] > 2 else basestring): value = search(VERSION_REGEX, value)
         if not value: return
-        major = value.group("MAJOR"); self.Major = int(major) if major else 0
-        minor = value.group("MINOR"); self.Minor = int(minor) if minor else 0
-        patchBuild = value.group("PATCH_BUILD"); self.PatchBuild = int(patchBuild) if patchBuild else None # SemVer patch or assembly versioning build.
-        revision = value.group("REVISION"); self.Revision = int(revision) if revision else None
-        self.Prerelease = value.group("PRERELEASE")
-        self.BuildMetadata = value.group("BUILD_METADATA")
+        major = value.group("Major"); self.Major = int(major) if major else 0
+        minor = value.group("Minor"); self.Minor = int(minor) if minor else 0
+        patchBuild = value.group("PatchBuild"); self.PatchBuild = int(patchBuild) if patchBuild else None # SemVer patch or assembly versioning build.
+        revision = value.group("Revision"); self.Revision = int(revision) if revision else None
+        self.Prerelease = value.group("Prerelease")
+        self.BuildMetadata = value.group("BuildMetadata")
         if not self.BuildMetadata: return
         value = match(BUILD_METADATA_REGEX, self.BuildMetadata)
-        self.UpdateMetadata(value.group("BUILD"), value.group("ID"), value.group("BRANCH"), value.group("COMMIT"))
+        self.UpdateMetadata(value.group("Build"), value.group("Id"), value.group("Branch"), value.group("Commit"))
 
     def ToString(self, noZeros = args.no_zeros, short = args.short, assembly = args.assembly):
         return "{0}.{1}{2}{3}{4}{5}".format(self.Major, self.Minor,
@@ -163,16 +199,17 @@ if gitVersion < Version(GIT_MIN_VERSION):
     print(Error("Unsupported Git version: " + gitVersion + "\nMinimal Git version: " + GIT_MIN_VERSION))
     exit(1)
 
+currentDir = getcwd()
+scriptFileName = __file__
+scriptPath = dirname(scriptFileName)
+pythonVersion = Version(sys.version)
+
 # Check .git folder existence.
 gitRoot = Run("git rev-parse --show-toplevel")
 if not gitRoot:
     print(Error("Not a git repository: " + currentDir))
     exit(1)
 
-currentDir = getcwd()
-scriptFileName = __file__
-scriptPath = dirname(scriptFileName)
-pythonVersion = Version(sys.version)
 GIT_PARENT_BRANCH = args.parent if args.parent else GIT_PARENT_BRANCH
 BUILD_METADATA_REGEX = args.regex if args.regex else BUILD_METADATA_REGEX
 VERSION_FILE_NAME = args.file if args.file else VERSION_FILE_NAME
@@ -208,3 +245,10 @@ if args.update:
     WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
 # Print result version.
 print(fileVersion if args.file and not args.update else version)
+
+# DEBUG:
+regex, i, type, value, empty, result = version.Generate(BUILD_METADATA_REGEX, 0, 2, None, False, "")
+print(result)
+print(version.__dict__["Minor"])
+version.__dict__["Test"] = 10
+print(version.Test)
