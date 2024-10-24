@@ -18,10 +18,10 @@ GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
 GIT_COMMIT_EMPTY_SHA = "0000000"
-GIT_COMMIT_EMPTY_VERSION = "0.0.0.0" # General value for SemVer and assembly versions regex.
 BUILD_METADATA_REGEX = r"(?:(?P<Build>[0-9]+)\.)?(?:(?P<Id>[0-9a-zA-Z-]+)\.)?(?P<Ref>[0-9a-zA-Z-]+)\.(?P<Commit>[0-9a-fA-F-]+)"
 VERSION_REGEX = r"v?(?P<Major>0|[1-9]\d*)\.(?P<Minor>0|[1-9]\d*)(\.(?P<PatchBuild>0|[1-9]\d*))?(\.(?P<Revision>0|[1-9]\d*))?(?:-(?P<Prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<BuildMetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
 VERSION_FILE_NAME = ".version"
+ITERATIONS_NUMBER = 3
 
 # Define script arguments.
 parser = argparse.ArgumentParser(prog = "py version.py", description = "Script to get an automatic version of a code for the current commit.")
@@ -34,9 +34,10 @@ parser.add_argument("-u", "--update", action="store_true", help = "update versio
 parser.add_argument("-m", "--ignore-merges", action="store_true", help = "ignore merges in version increment")
 parser.add_argument("-t", "--ignore-tags", action="store_true", help = "ignore tags with invalid versions")
 parser.add_argument("-r", "--ignore-refs", action="store_true", help = "ignore versions in branches or detached tags")
-parser.add_argument("-b", "--build-metadata", metavar = "REGEX", nargs = "?", const = BUILD_METADATA_REGEX, help = "strict group-based regular expression for formatting and parsing build metadata (default: " + BUILD_METADATA_REGEX + ")")
-parser.add_argument("-i", "--id", metavar = "ID", nargs = "?", const = None, help = "set build metadata custom identifier value")
-parser.add_argument("-f", "--file", metavar = "FILE", nargs = "?", const = VERSION_FILE_NAME, help = "use version file (default: " + VERSION_FILE_NAME + ")")
+parser.add_argument("-i", metavar = "ID", nargs = "?", const = None, help = "set build metadata custom identifier value")
+parser.add_argument("-f", metavar = "FILE", nargs = "?", const = VERSION_FILE_NAME, help = "use version file (default: \"" + VERSION_FILE_NAME + "\")")
+parser.add_argument("-b", metavar = "REGEX", nargs = "?", const = BUILD_METADATA_REGEX, help = "strict group-based regular expression for formatting and parsing build metadata (default: \"" + BUILD_METADATA_REGEX + "\")")
+parser.add_argument("-n", metavar = "NUMBER", nargs = "?", const = ITERATIONS_NUMBER, help = "Limit script iterations (default: " + str(ITERATIONS_NUMBER) + ")")
 parser.add_argument("--compare", metavar = "VERSION", nargs="+", help = "compare multiple versions with each other: left is less than right if < sign is output, equal if =, greater if >")
 parser.add_argument("--validate", metavar = "VERSION", nargs = "?", const = None, help = "validate version is correct (echo $? is 0 if valid and not valid in other cases)")
 args = parser.parse_args()
@@ -62,7 +63,7 @@ def Run(command, errorValue = None):
     def Split(command): return ["".join(tuples) for tuples in findall(r"(:?[^\"\'\s]\S*)|[\"\'](:?.*?)[\"\']", command)]
     try: error = False; result = check_output(Split(command), shell = False, stderr = None if args.debug else DEVNULL).decode().strip()
     except: error = True; result = errorValue
-    Log((Error(command) if error else Success(command)) + Info(" # " + ("None" if result == None else "\"" + str(result) + "\"")))
+    Log((Warn(command) if error else Success(command)) + Info(" # " + ("None" if result == None else "\"" + str(result) + "\"")))
     return result
 
 # Read file and return its content.
@@ -94,16 +95,6 @@ class Version:
             100 * CmpObj(self.PatchBuild if self.PatchBuild else 0, other.PatchBuild if other.PatchBuild else 0) +
             10 * CmpObj(self.Revision if self.Revision else 0, other.Revision if other.Revision else 0) +
             CmpStr(self.Prerelease, other.Prerelease)) # Build metadata MUST be ignored when determining version precedence.
-
-    def __lt__(self, other): return self.Compare(other) < 0
-    def __gt__(self, other): return self.Compare(other) > 0
-    def __le__(self, other): return self.Compare(other) <= 0
-    def __ge__(self, other): return self.Compare(other) >= 0
-    def __eq__(self, other): return self.Compare(other) == 0
-    def __ne__(self, other): return self.Compare(other) != 0
-
-    def __getitem__(self, key): return self.__dict__[key] if key in self.__dict__.keys() else None
-    def __setitem__(self, key, value): self.__dict__[key] = value
 
     def Generate(self, regex, i, type, value, empty, result):
         TYPE_EOF = 0; TYPE_ERROR = 1; TYPE_CHAR = 2; TYPE_GROUP = 3; TYPE_NAMED_GROUP = 4; TYPE_GROUP_END = 5; TYPE_LAZY_END = 6
@@ -161,9 +152,6 @@ class Version:
         self.UpdateMetadata(value.group("Build"), value.group("Id"), value.group("Ref"), value.group("Commit"))
         return True
 
-    # Get version object from string or regex match.
-    def __init__(self, value = None): self.Parse(value)
-
     def ToString(self, noZeros = args.no_zeros, short = args.short, assembly = args.assembly):
         return "{0}.{1}{2}{3}{4}{5}".format(self.Major, self.Minor,
             "" if noZeros and self.PatchBuild == None and self.Revision == None else ".{0}".format(self.PatchBuild if self.PatchBuild else 0),
@@ -171,16 +159,25 @@ class Version:
             "" if short or not self.Prerelease else "-{0}".format(self.Prerelease),
             "" if short or not self.BuildMetadata else "+{0}".format(self.BuildMetadata))
 
-    def __str__(self): return self.ToString()
-    def __radd__(self, other): return other + self.ToString()
-
     def Add(self, value):
         if args.assembly: self.Revision = value + self.Revision if self.Revision else value
         else: self.PatchBuild = value + self.PatchBuild if self.PatchBuild else value
         return self
 
+    def __lt__(self, other): return self.Compare(other) < 0
+    def __gt__(self, other): return self.Compare(other) > 0
+    def __le__(self, other): return self.Compare(other) <= 0
+    def __ge__(self, other): return self.Compare(other) >= 0
+    def __eq__(self, other): return self.Compare(other) == 0
+    def __ne__(self, other): return self.Compare(other) != 0
+    def __setitem__(self, key, value): self.__dict__[key] = value
+    def __getitem__(self, key): return self.__dict__[key] if key in self.__dict__.keys() else None
+    def __init__(self, value = None): self.Parse(value) # Get version object from string or regex match.
+    def __str__(self): return self.ToString()
+    def __radd__(self, other): return other + self.ToString()
+
 def GetCommits(fromCommit, toCommit = None):
-    return int(Run("git rev-list --count --full-history " + ignoreMerges + " " + fromCommit + (".." + toCommit if toCommit else ""), 0))
+    return int(Run("git rev-list --count --full-history " + ("--no-merges " if args.ignore_merges else "") + fromCommit + (".." + toCommit if toCommit else ""), 0))
 
 # Show script version.
 if args.version:
@@ -217,12 +214,12 @@ if not gitRoot:
 scriptFileName = __file__
 scriptPath = dirname(scriptFileName)
 pythonVersion = Version(sys.version)
-BUILD_METADATA_REGEX = args.build_metadata if args.build_metadata else BUILD_METADATA_REGEX
-VERSION_FILE_NAME = args.file if args.file else VERSION_FILE_NAME
-ignoreMerges = "--no-merges" if args.ignore_merges else ""
-version = versionFile = None
+BUILD_METADATA_REGEX = args.b if args.b else BUILD_METADATA_REGEX
+VERSION_FILE_NAME = args.f if args.f else VERSION_FILE_NAME
+ITERATIONS_NUMBER = int(args.n) if args.n else ITERATIONS_NUMBER
+versionFile = None
 
-if args.file or args.update:
+if args.f or args.update:
     fileName = VERSION_FILE_NAME
     fileData = ReadFile(fileName)
     if fileData: # Count the number of commits since a file was changed and add them to the contained version.
@@ -231,34 +228,6 @@ if args.file or args.update:
         versionFile = Version(fileData).Add(GetCommits(lastBump, "HEAD") if lastBump != GIT_COMMIT_EMPTY_SHA else 0)
 
 # Read info.
-#gitSha = Run("git -c log.showSignature=false log --format=format:" + GIT_LONG_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
-#gitCommit = Run("git -c log.showSignature=false log --format=format:" + GIT_SHORT_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
-#gitTag = Run("git describe --tags --match=" + GIT_TAG_REGEX + " --abbrev=0")
-#gitTagCommit = Run("git rev-list \"" + gitTag + "\" -n 1", GIT_COMMIT_EMPTY_SHA)
-# Obsolete branch detection method.
-#gitBranch = Run("git rev-parse --abbrev-ref HEAD", Run("git name-rev --name-only --refs=refs/heads/* --no-undefined --always HEAD", GIT_PARENT_BRANCH))
-#gitForkPoint = Run("git merge-base --fork-point \"" + GIT_PARENT_BRANCH + "\"", Run("git merge-base \"" + gitBranch + "\" \"origin/" + GIT_PARENT_BRANCH + "\"")) # Check the parent branch is selected correctly.
-#if not gitForkPoint: Log(Error("Could not retrieve first commit where branch '" + gitBranch + "' forked from parent '" + GIT_PARENT_BRANCH + "' branch. Use script -p argument to setup default branch of your repository.")); exit(1)
-#gitIsAncestor = False if gitForkPoint == gitSha else (True if Run("git merge-base --is-ancestor " + gitForkPoint + " " + gitTag, False) == "" else False) # Check the branch's parent is before the tag.
-# Read version.
-#if not args.ignore_tag and gitTag: version = Version(gitTag).Add(GetCommits(gitTagCommit, gitCommit)) # Read tag version.
-#elif not args.ignore_branch and gitBranch: version = Version(gitBranch).Add(GetCommits(gitForkPoint, "HEAD")) # Read branch version.
-#else: version = Version(GIT_COMMIT_EMPTY_VERSION).Add(GetCommits(gitCommit)) # Read default version.
-# Update build information.
-#version.UpdateMetadata(0 if version.Build == None else version.Build, args.id, sub(r"[^0-9A-Za-z-]", "-", gitBranch), gitCommit)
-#if args.update:
-#    version.UpdateMetadata(versionFile.Build + 1 if versionFile and version == versionFile and version.Id == versionFile.Id and version.Branch == versionFile.Branch and version.Commit == versionFile.Commit else 0) # Rebuild the same commit or it's first build.
-#    WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
-# Print result version.
-#print(versionFile if args.file and not args.update else version)
-
-#print(Version().Parse("1.1"))
-
-def GetTag(previous = None):
-    tagName = Run("git describe --tags --match=* --abbrev=0 " + (previous + "~1" if not IsNoneOrWhiteSpace(previous) else ""))
-    tagHash = Run("git rev-list \"" + tagName + "\" -n 1", None) if tagName else None # Alternative: git log -1 --format=format:" + GIT_LONG_SHA_FORMAT + " " + tagName
-    return (tagHash, tagName)
-
 gitCommit = Run("git -c log.showSignature=false log --format=format:" + GIT_SHORT_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
 # Get a user-friendly reference name.
 gitRef = Run("git rev-parse --abbrev-ref head", "head")
@@ -267,30 +236,41 @@ if gitRef == "head":
     if len(gitRefs) > 0: gitRef = gitRefs[0]
 # Get versions range.
 versionMin = Version(); versionMax = None
-validRef = versionMin.Parse(gitRef)
-if not args.ignore_refs and validRef:
+refValid = versionMin.Parse(gitRef)
+if not args.ignore_refs and refValid:
     versionMax = Version(versionMin.ToString(True, True, args.assembly))
     if versionMax.Minor == None: versionMax.Major += 1
     elif versionMax.PatchBuild == None: versionMax.Minor += 1
-    elif args.assembly and versionMax.Revision == None: versionMax.PatchBuild += 1
+    elif versionMax.Revision == None: versionMax.PatchBuild += 1
+    else: versionMax.Revision += 1
 # Iterate tags.
 tagHash = "head"
 tagName = None
-versionTag = Version()
-validTag = False
-while (tagHash and not validTag):
-    tagHash, tagName = GetTag(tagHash)
-    validTag = versionTag.Parse(tagName)
-    if validTag:
-        if args.ignore_refs or not validRef or versionMin <= versionTag < versionMax: break # Use tag version.
-        elif args.ignore_tags and versionMin <= versionTag: continue # It makes sense to look for the next tag.
-        else: validTag = False; break # No matching tag.
+version = Version()
+tagValid = False
+i = 0
+while (not tagValid and tagHash and i < ITERATIONS_NUMBER):
+    tagName = Run("git describe --tags --match=* --abbrev=0 " + tagHash)
+    tagHash = Run("git rev-list \"" + tagName + "\" -n 1") if tagName else None # Alternative: git log -1 --format=format:" + GIT_LONG_SHA_FORMAT + " " + tagName
+    tagValid = version.Parse(tagName)
+    if tagValid:
+        if not refValid or args.ignore_refs or versionMin <= version < versionMax: break # Use tag version.
+        elif refValid and versionMin > version or not args.ignore_tags: tagValid = False; break # No matching tag.
+        else: tagValid = False # It makes sense to look for the next tag.
+    i += 1; tagHash = tagHash + "~1" if tagHash else None # Iterate to the next commit.
+# Read version.
+version = version.Add(GetCommits(tagHash, gitCommit)) if tagValid else Version().Add(GetCommits(gitCommit))
 
-print(tagName)
+#print(gitRef)
+#print(tagValid)
+#if tagValid: version = version.Add(GetCommits(tagHash, gitCommit))
+#elif args.ignore_tags: version = Version().Add(GetCommits(gitCommit))
+#else: print(Error("Can't reach valid version.")); exit(1)
 
-#tagHash, tagName = GetTag("head")
-#print(tagName)
-#tagHash, tagName = GetTag(tagHash)
-#print(tagName)
-#tagHash, tagName = GetTag(tagHash)
-#print(tagName)
+# Update build information.
+version.UpdateMetadata(0 if version.Build == None else version.Build, args.i, sub(r"[^0-9A-Za-z-]", "-", gitRef), gitCommit)
+if args.update:
+    version.UpdateMetadata(versionFile.Build + 1 if versionFile and version == versionFile and version.Id == versionFile.Id and version.Ref == versionFile.Ref and version.Commit == versionFile.Commit else 0) # Rebuild the same commit or it's first build.
+    WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
+# Print result version.
+print(versionFile if args.f and not args.update else version)
