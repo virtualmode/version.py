@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -14,7 +14,7 @@ ITERATIONS_NUMBER = 3
 import argparse, sys
 from sys import exit, stdout, version_info
 from os import devnull, getcwd, makedirs
-from os.path import dirname, exists
+from os.path import dirname, exists, isabs, join
 from re import findall, match, search, sub
 from subprocess import check_output
 try: from subprocess import DEVNULL # Support null device for Python 2.7 and higher.
@@ -218,16 +218,20 @@ pythonVersion = Version(sys.version)
 BUILD_METADATA_REGEX = args.b if args.b else BUILD_METADATA_REGEX
 VERSION_FILE_NAME = args.f if args.f else VERSION_FILE_NAME
 ITERATIONS_NUMBER = int(args.n) if args.n else ITERATIONS_NUMBER
-versionFile = None
 
-# Get version from a file or update it.
-if args.f or args.update:
+# Try to read version file.
+versionFile = None
+if args.f or args.update: # Relative to the current directory.
     fileName = VERSION_FILE_NAME
     fileData = ReadFile(fileName)
+    if not fileData and not isabs(fileName): # Relative to the script directory.
+        fileData = ReadFile(join(scriptPath, fileName))
+    # Get version from a file or update it.
     if fileData: # Count the number of commits since a file was changed and add them to the contained version.
         lastBump = Run("git -c log.showSignature=false log -n 1 --format=format:" + GIT_SHORT_SHA_FORMAT + " -- \"" + fileName + "\"", GIT_COMMIT_EMPTY_SHA)
         if lastBump == GIT_COMMIT_EMPTY_SHA or not lastBump.strip(): Log(Warn("Could not retrieve last commit for '" + fileName + "' file. The patch or revision will not be incremented automatically."))
         versionFile = Version(fileData).Add(GetCommits(lastBump, "HEAD") if lastBump != GIT_COMMIT_EMPTY_SHA else 0)
+    else: Log(Warn("Can't read version file: " + fileName))
 
 # Read info.
 gitCommit = Run("git -c log.showSignature=false log --format=format:" + GIT_SHORT_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
@@ -272,4 +276,4 @@ if args.update:
     WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
 
 # Print result version.
-print(versionFile if args.f and not args.update else version)
+print(versionFile if not args.update and args.f and versionFile else version)
