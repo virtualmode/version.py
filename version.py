@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -40,7 +40,7 @@ parser.add_argument("--validate", metavar = "VERSION", nargs = "?", const = None
 args = parser.parse_args()
 
 # Functions for debug purposes.
-def Info(message): return "\033[0;90m" + message + "\033[0;0m"
+def Info(message): return "\033[0;37m" + message + "\033[0;0m"
 def Warn(message): return "\033[0;33m" + message + "\033[0;0m"
 def Error(message): return "\033[0;31m" + message + "\033[0;0m"
 def Success(message): return "\033[0;32m" + message + "\033[0;0m"
@@ -237,9 +237,9 @@ if args.f or args.update: # Relative to the current directory.
 gitCommit = Run("git -c log.showSignature=false log --format=format:" + GIT_SHORT_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
 
 # Get a user-friendly reference name.
-gitRef = Run("git rev-parse --abbrev-ref head", "head")
-if gitRef == "head":
-    gitRefs = Run("git tag --points-at head", "").splitlines()
+gitRef = Run("git rev-parse --abbrev-ref HEAD", "HEAD")
+if gitRef == "HEAD":
+    gitRefs = Run("git tag --points-at HEAD", "").splitlines()
     if len(gitRefs) > 0: gitRef = gitRefs[0]
 
 # Get versions range.
@@ -253,7 +253,7 @@ if not args.ignore_refs and refValid:
     else: versionMax.Revision += 1
 
 # Iterate tags.
-i = 0; tagHash = "head"; tagName = None; tagValid = False; version = Version()
+i = 0; tagHash = "HEAD"; tagName = None; tagValid = False; version = Version()
 while (not tagValid and tagHash and i < ITERATIONS_NUMBER):
     tagName = Run("git describe --tags --match=* --abbrev=0 " + tagHash)
     tagHash = Run("git rev-list \"" + tagName + "\" -n 1") if tagName else None # Alternative: git log -1 --format=format:" + GIT_LONG_SHA_FORMAT + " " + tagName
