@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -50,6 +50,7 @@ def Log(message):
         print(message)
 
 # String functions.
+def Escape(value): return None if value == None else sub(r"[^0-9A-Za-z-]", "-", value)
 def IsString(value): return isinstance(value, str if version_info[0] > 2 else basestring)
 def IsNoneOrWhiteSpace(value): return value == None or value == "" or value.isspace()
 
@@ -149,8 +150,9 @@ class Version:
         self.Prerelease = value.group("Prerelease")
         self.BuildMetadata = value.group("BuildMetadata")
         # Parse the build metadata.
-        if not self.BuildMetadata: return True
+        if not self.BuildMetadata: return True # Build metadata is always optional.
         value = match(BUILD_METADATA_REGEX, self.BuildMetadata)
+        if value == None: return False # But strict if presented.
         self.UpdateMetadata(value.group("Build"), value.group("Id"), value.group("Ref"), value.group("Commit"))
         return True
 
@@ -228,9 +230,11 @@ if args.f or args.update: # Relative to the current directory.
         fileData = ReadFile(join(scriptPath, fileName))
     # Get version from a file or update it.
     if fileData: # Count the number of commits since a file was changed and add them to the contained version.
+        versionFile = Version()
         lastBump = Run("git -c log.showSignature=false log -n 1 --format=format:" + GIT_SHORT_SHA_FORMAT + " -- \"" + fileName + "\"", GIT_COMMIT_EMPTY_SHA)
-        if lastBump == GIT_COMMIT_EMPTY_SHA or not lastBump.strip(): Log(Warn("Could not retrieve last commit for '" + fileName + "' file. The patch or revision will not be incremented automatically."))
-        versionFile = Version(fileData).Add(GetCommits(lastBump, "HEAD") if lastBump != GIT_COMMIT_EMPTY_SHA else 0)
+        if lastBump == GIT_COMMIT_EMPTY_SHA or not lastBump.strip(): Log(Warn("Could not retrieve last commit for '" + fileName + "' file. The patch or revision will not be incremented."))
+        if not versionFile.Parse(fileData) and not args.update: ExitError("Unable to parse version file content: " + fileData)
+        versionFile.Add(GetCommits(lastBump, "HEAD") if lastBump != GIT_COMMIT_EMPTY_SHA else 0)
     else: Log(Warn("Can't read version file: " + fileName))
 
 # Read info.
@@ -270,7 +274,7 @@ elif gitCommit != GIT_COMMIT_EMPTY_SHA and (not tagHash or args.ignore_tags): ve
 else: ExitError("Unable to obtain valid version.")
 
 # Update build information.
-version.UpdateMetadata(0 if version.Build == None else version.Build, args.i, sub(r"[^0-9A-Za-z-]", "-", gitRef), gitCommit)
+version.UpdateMetadata(0 if version.Build == None else version.Build, Escape(args.i), Escape(gitRef), gitCommit)
 if args.update:
     version.UpdateMetadata(versionFile.Build + 1 if versionFile and version == versionFile and version.Id == versionFile.Id and version.Ref == versionFile.Ref and version.Commit == versionFile.Commit else 0) # Rebuild the same commit or it's first build.
     WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
