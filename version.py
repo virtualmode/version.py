@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.4"
+VERSION = "1.2.5"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -14,7 +14,7 @@ ITERATIONS_NUMBER = 3
 import argparse, sys
 from sys import exit, stdout, version_info
 from os import devnull, getcwd, makedirs
-from os.path import dirname, exists, isabs, join
+from os.path import basename, dirname, exists, isabs, join
 from re import findall, match, search, sub
 from subprocess import check_output
 try: from subprocess import DEVNULL # Support null device for Python 2.7 and higher.
@@ -45,14 +45,15 @@ def Warn(message): return "\033[0;33m" + message + "\033[0;0m"
 def Error(message): return "\033[0;31m" + message + "\033[0;0m"
 def Success(message): return "\033[0;32m" + message + "\033[0;0m"
 def ExitError(message, code = 1): print(Error(message)); print(Error("Run with -h argument to help.")); exit(code)
+def ExitResult(message, code = 0): print(message); exit(code)
 def Log(message):
     if args.debug:
         print(message)
 
 # String functions.
-def Escape(value): return None if value == None else sub(r"[^0-9A-Za-z-]", "-", value)
+def ToId(value): return None if value == None else sub(r"[^0-9A-Za-z-]", "-", value)
 def IsString(value): return isinstance(value, str if version_info[0] > 2 else basestring)
-def IsNoneOrWhiteSpace(value): return value == None or value == "" or value.isspace()
+def IsNoneOrWhiteSpace(value): return value == None or value == "" or value.isspace() # Including \t\r\n characters.
 
 # Run system command and get result.
 def Run(command, errorValue = None):
@@ -183,36 +184,6 @@ class Version:
     def __eq__(self, other): return self.Compare(other) == 0
     def __ne__(self, other): return self.Compare(other) != 0
 
-# Show script version.
-if args.version:
-    print(VERSION)
-    exit(0)
-
-# Version comparsion.
-if args.compare:
-    versions = [Version(i) for i in args.compare]
-    if len(versions) <= 1: ExitError("Too few arguments to compare.")
-    for j in range(len(versions) - 1): result = versions[j].Compare(versions[j + 1]); stdout.write("{0} ".format("=" if result == 0 else "<" if result < 0 else ">"))
-    print("")
-    exit(0)
-
-# Validate version from argument.
-if args.validate:
-    version = Version(); valid = version.Parse(args.validate)
-    Log(version) # Log parsed version if you want additional information about result.
-    exit(0 if valid else 1) # Use 'echo $?' to obtain result.
-
-# Compute properties before obtain version.
-gitVersion = Version(Run("git --version"))
-if gitVersion < Version(GIT_MIN_VERSION):
-    ExitError("Unsupported Git version: " + gitVersion + "\nMinimal Git version: " + GIT_MIN_VERSION)
-
-# Check .git folder existence.
-currentDir = getcwd()
-gitRoot = Run("git rev-parse --show-toplevel")
-if not gitRoot:
-    ExitError("Not a git repository: " + currentDir)
-
 # Initialize variables to compute a version.
 scriptFileName = __file__
 scriptPath = dirname(scriptFileName)
@@ -220,6 +191,23 @@ pythonVersion = Version(sys.version)
 BUILD_METADATA_REGEX = args.b if args.b else BUILD_METADATA_REGEX
 VERSION_FILE_NAME = args.f if args.f else VERSION_FILE_NAME
 ITERATIONS_NUMBER = int(args.n) if args.n else ITERATIONS_NUMBER
+Log(basename(scriptFileName) + " " + VERSION)
+
+# Show script version.
+if args.version:
+    ExitResult(VERSION)
+
+# Version comparsion.
+if args.compare:
+    versions = [Version(i) for i in args.compare]
+    if len(versions) <= 1: ExitError("Too few arguments to compare.")
+    for j in range(len(versions) - 1): result = versions[j].Compare(versions[j + 1]); stdout.write("{0} ".format("=" if result == 0 else "<" if result < 0 else ">"))
+    ExitResult("")
+
+# Validate version from argument.
+if args.validate: # Use 'echo $?' to obtain result.
+    version = Version(); valid = version.Parse(args.validate)
+    ExitResult(version, 0 if valid else 1) # Print parsed version and exit.
 
 # Try to read version file.
 versionFile = None
@@ -231,11 +219,24 @@ if args.f or args.update: # Relative to the current directory.
     # Get version from a file or update it.
     if fileData: # Count the number of commits since a file was changed and add them to the contained version.
         versionFile = Version()
-        lastBump = Run("git -c log.showSignature=false log -n 1 --format=format:" + GIT_SHORT_SHA_FORMAT + " -- \"" + fileName + "\"", GIT_COMMIT_EMPTY_SHA)
-        if lastBump == GIT_COMMIT_EMPTY_SHA or not lastBump.strip(): Log(Warn("Could not retrieve last commit for '" + fileName + "' file. The patch or revision will not be incremented."))
-        if not versionFile.Parse(fileData) and not args.update: ExitError("Unable to parse version file content: " + fileData)
-        versionFile.Add(GetCommits(lastBump, "HEAD") if lastBump != GIT_COMMIT_EMPTY_SHA else 0)
+        if versionFile.Parse(fileData):
+            lastBump = Run("git -c log.showSignature=false log -n 1 --format=format:" + GIT_SHORT_SHA_FORMAT + " -- \"" + fileName + "\"", GIT_COMMIT_EMPTY_SHA)
+            if lastBump == GIT_COMMIT_EMPTY_SHA or IsNoneOrWhiteSpace(lastBump): Log(Warn("Could not retrieve last commit for '" + fileName + "' file. The patch or revision will not be incremented."))
+            else: versionFile.Add(GetCommits(lastBump, "HEAD"))
+            if not args.update: ExitResult(versionFile)
+        elif not args.update: ExitError("Unable to parse version file content: " + fileData.strip())
     else: Log(Warn("Can't read version file: " + fileName))
+
+# Compute properties before obtain version.
+gitVersion = Version(Run("git --version"))
+if gitVersion < Version(GIT_MIN_VERSION):
+    ExitError("Unsupported Git version: " + gitVersion + "\nMinimal Git version: " + GIT_MIN_VERSION)
+
+# Check .git folder existence.
+currentDir = getcwd()
+gitRoot = Run("git rev-parse --show-toplevel")
+if not gitRoot:
+    ExitError("Not a git repository: " + currentDir)
 
 # Read info.
 gitCommit = Run("git -c log.showSignature=false log --format=format:" + GIT_SHORT_SHA_FORMAT + " -n 1", GIT_COMMIT_EMPTY_SHA)
@@ -274,10 +275,10 @@ elif gitCommit != GIT_COMMIT_EMPTY_SHA and (not tagHash or args.ignore_tags): ve
 else: ExitError("Unable to obtain valid version.")
 
 # Update build information.
-version.UpdateMetadata(0 if version.Build == None else version.Build, Escape(args.i), Escape(gitRef), gitCommit)
+version.UpdateMetadata(0 if version.Build == None else version.Build, ToId(args.i), ToId(gitRef), gitCommit)
 if args.update:
     version.UpdateMetadata(versionFile.Build + 1 if versionFile and version == versionFile and version.Id == versionFile.Id and version.Ref == versionFile.Ref and version.Commit == versionFile.Commit else 0) # Rebuild the same commit or it's first build.
     WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
 
 # Print result version.
-print(versionFile if not args.update and args.f and versionFile else version)
+ExitResult(version)
