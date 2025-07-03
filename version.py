@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.5"
+VERSION = "1.2.6"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -135,6 +135,10 @@ class Version:
         self.Commit = self.Commit if commit == None else commit
         regex, i, type, value, empty, self.BuildMetadata = self.Generate(BUILD_METADATA_REGEX, 0, 1, None, False, "")
 
+    # Get group value if exists.
+    def Group(self, value, name):
+        return value.group(name) if name in value.groupdict() else None
+
     # Parse version from string or regex.
     def Parse(self, value = None):
         # Determine the value type and choose action.
@@ -154,7 +158,7 @@ class Version:
         if not self.BuildMetadata: return True # Build metadata is always optional.
         value = match(BUILD_METADATA_REGEX, self.BuildMetadata)
         if value == None: return False # But strict if presented.
-        self.UpdateMetadata(value.group("Build"), value.group("Id"), value.group("Ref"), value.group("Commit"))
+        self.UpdateMetadata(self.Group(value, "Build"), self.Group(value, "Id"), self.Group(value, "Ref"), self.Group(value, "Commit"))
         return True
 
     # Convert version to string.
