@@ -1,6 +1,6 @@
 # Script to obtain project version.
 # Author: https://github.com/virtualmode
-VERSION = "1.2.6"
+VERSION = "1.2.7"
 GIT_MIN_VERSION = "2.5.0"
 GIT_LONG_SHA_FORMAT = "%H"
 GIT_SHORT_SHA_FORMAT = "%h"
@@ -35,8 +35,17 @@ parser.add_argument("-i", metavar = "ID", nargs = "?", const = None, help = "set
 parser.add_argument("-f", metavar = "FILE", nargs = "?", const = VERSION_FILE_NAME, help = "use version file (default: \"" + VERSION_FILE_NAME + "\")")
 parser.add_argument("-b", metavar = "REGEX", nargs = "?", const = BUILD_METADATA_REGEX, help = "strict group-based regular expression for formatting and parsing build metadata (default: \"" + BUILD_METADATA_REGEX + "\")")
 parser.add_argument("-n", metavar = "NUMBER", nargs = "?", const = ITERATIONS_NUMBER, help = "Limit script iterations (default: " + str(ITERATIONS_NUMBER) + ")")
+# Version components flags.
+parser.add_argument("--major", action="store_true", help = "show major version")
+parser.add_argument("--minor", action="store_true", help = "show minor version")
+parser.add_argument("--patch-build", action="store_true", help = "show patch for semantic versioning or build number for assembly versioning")
+parser.add_argument("--revision", action="store_true", help = "show revision for assembly versioning")
+parser.add_argument("--pre-release", action="store_true", help = "show pre-release labels")
+parser.add_argument("--build-metadata", action="store_true", help = "show build metadata")
+# Additional functions.
 parser.add_argument("--compare", metavar = "VERSION", nargs="+", help = "compare multiple versions with each other: left is less than right if < sign is output, equal if =, greater if >")
 parser.add_argument("--validate", metavar = "VERSION", nargs = "?", const = None, help = "validate version is correct (echo $? is 0 if valid and not valid in other cases)")
+# Initialize arguments object.
 args = parser.parse_args()
 
 # Functions for debug purposes.
@@ -161,13 +170,30 @@ class Version:
         self.UpdateMetadata(self.Group(value, "Build"), self.Group(value, "Id"), self.Group(value, "Ref"), self.Group(value, "Commit"))
         return True
 
+    # Convert to version string.
+    def ToVersion(self, noZeros, short, assembly):
+        return "{0}{1}{2}{3}{4}{5}".format(
+            "{0}".format(self.Major),
+            ".{0}".format(self.Minor),
+            ".{0}".format(self.PatchBuild if self.PatchBuild else 0) if (not noZeros or self.PatchBuild != None) or self.Revision != None else "",
+            ".{0}".format(self.Revision if self.Revision else 0) if (not noZeros or self.Revision != None) and assembly else "",
+            "-{0}".format(self.Prerelease) if not short and self.Prerelease else "",
+            "+{0}".format(self.BuildMetadata) if not short and self.BuildMetadata else "")
+
+    # Convert version to components string.
+    def ToComponents(self, major, minor, patchBuild, revision, prerelease, buildMetadata):
+        return "{0}{1}{2}{3}{4}{5}".format(
+            "{0} ".format(self.Major) if major else "",
+            "{0} ".format(self.Minor) if minor else "",
+            "{0} ".format(self.PatchBuild) if patchBuild else "",
+            "{0} ".format(self.Revision) if revision else "",
+            "{0} ".format(self.Prerelease) if prerelease else "",
+            "{0} ".format(self.BuildMetadata) if buildMetadata else "")
+
     # Convert version to string.
-    def ToString(self, noZeros = args.no_zeros, short = args.short, assembly = args.assembly):
-        return "{0}.{1}{2}{3}{4}{5}".format(self.Major, self.Minor,
-            "" if noZeros and self.PatchBuild == None and self.Revision == None else ".{0}".format(self.PatchBuild if self.PatchBuild else 0),
-            "" if noZeros and self.Revision == None or not assembly else ".{0}".format(self.Revision if self.Revision else 0),
-            "" if short or not self.Prerelease else "-{0}".format(self.Prerelease),
-            "" if short or not self.BuildMetadata else "+{0}".format(self.BuildMetadata))
+    def ToString(self, noZeros = args.no_zeros, short = args.short, assembly = args.assembly,
+        major = args.major, minor = args.minor, patchBuild = args.patch_build, revision = args.revision, prerelease = args.pre_release, buildMetadata = args.build_metadata):
+        return self.ToComponents(major, minor, patchBuild, revision, prerelease, buildMetadata) if major or minor or patchBuild or revision or prerelease or buildMetadata else self.ToVersion(noZeros, short, assembly)
 
     # Add a number to version.
     def Add(self, value):
@@ -199,7 +225,9 @@ Log(basename(scriptFileName) + " " + VERSION)
 
 # Show script version.
 if args.version:
-    ExitResult(VERSION)
+    version = Version()
+    version.Parse(VERSION)
+    ExitResult(version)
 
 # Version comparsion.
 if args.compare:
@@ -210,7 +238,8 @@ if args.compare:
 
 # Validate version from argument.
 if args.validate: # Use 'echo $?' to obtain result.
-    version = Version(); valid = version.Parse(args.validate)
+    version = Version()
+    valid = version.Parse(args.validate)
     ExitResult(version, 0 if valid else 1) # Print parsed version and exit.
 
 # Try to read version file.
@@ -255,7 +284,7 @@ if gitRef == "HEAD":
 versionMin = Version(); versionMax = None
 refValid = versionMin.Parse(gitRef)
 if not args.ignore_refs and refValid:
-    versionMax = Version(versionMin.ToString(True, True, args.assembly))
+    versionMax = Version(versionMin.ToString(True, True, args.assembly, None, None, None, None, None, None))
     if versionMax.Minor == None: versionMax.Major += 1
     elif versionMax.PatchBuild == None: versionMax.Minor += 1
     elif versionMax.Revision == None: versionMax.PatchBuild += 1
@@ -282,7 +311,7 @@ else: ExitError("Unable to obtain valid version.")
 version.UpdateMetadata(0 if version.Build == None else version.Build, ToId(args.i), ToId(gitRef), gitCommit)
 if args.update:
     version.UpdateMetadata(versionFile.Build + 1 if versionFile and version == versionFile and version.Id == versionFile.Id and version.Ref == versionFile.Ref and version.Commit == versionFile.Commit else 0) # Rebuild the same commit or it's first build.
-    WriteFile(VERSION_FILE_NAME, version.ToString(False, False)) # Always save full version information.
+    WriteFile(VERSION_FILE_NAME, version.ToString(False, False, args.assembly, None, None, None, None, None, None)) # Always save full version information.
 
 # Print result version.
 ExitResult(version)
