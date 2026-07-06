@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "C#: Build current file",
+      "group": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${file}",
+        "--output",
+        "${env:TEMP}/dotnet/runfile"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

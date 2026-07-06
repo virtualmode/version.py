@@ -1,4 +1,57 @@
 <!-- vim: syntax=Markdown -->
 
 # Auto versioning script
-[![MIT](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/virtualmode/version.py/blob/main/LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/virtualmode/version.py/blob/main/LICENSE)
+
+.NET implementation
+===================
+
+Run:
+
+```bash
+# Run a file-based app.
+dotnet [run] Version.cs [-- options]
+# On Unix you can execute file-based apps directly using just the source file name.
+./Version.cs [options]
+# If the shebang in the Version.cs doesn't work, try:
+#!/usr/bin/env dotnet
+#!/usr/local/share/dotnet/dotnet --
+```
+
+Pipe code from stdin:
+
+```bash
+echo 'Console.WriteLine("Echo from stdin!");' | dotnet run -
+```
+
+Build:
+
+```bash
+# Compile your file-based app.
+dotnet build Version.cs
+# Manual restore.
+dotnet restore Version.cs
+dotnet build --no-restore Version.cs
+dotnet run --no-build Version.cs
+```
+
+Clean:
+
+```bash
+# Remove build artifacts.
+dotnet clean Version.cs
+# Delete cache for file-based apps in a directory.
+dotnet clean file-based-apps
+```
+
+Publish:
+
+```bash
+dotnet publish Version.cs -o bin
+```
+
+Package as tool:
+
+```bash
+dotnet pack Version.cs
+```

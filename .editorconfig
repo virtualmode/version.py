@@ -1,8 +1,8 @@
-# Solution .editorconfig file.
-
+# Root .editorconfig file.
 root = true
 
-[*,*.{cs,css,cshtml,htm,html,java,js,kt,py,razor}]
+[*]
+# Includes *.{cs,css,cshtml,htm,html,java,js,kt,py,qs,razor,svg,xaml}
 charset = utf-8
 end_of_line = lf
 indent_size = 4
@@ -16,14 +16,15 @@ end_of_line = crlf
 [*.{c,cpp,h,proc}]
 indent_style = tab
 
-[*.{csproj,vcxproj,settings,targets}]
+[*.{appxmanifest,manifest,csproj,vcxproj,settings,plist,props,slnx,targets}]
 end_of_line = crlf
 indent_size = 2
 
-[*.{json,sh,xml}]
+[*.{json,runsettings,sh,xml,yml,yaml}]
 indent_size = 2
 
 [*.{md,rst}]
+indent_size = 2
 trim_trailing_whitespace = false
 
 [*.{pubxml,resx}]
@@ -36,6 +37,15 @@ charset = utf-8-bom
 end_of_line = crlf
 indent_style = tab
 
-[LocalizationStrings.Designer.cs]
+[*.Designer.cs]
 charset = utf-8-bom
 end_of_line = crlf
+
+# Exceptions to the general rules.
+
+[*.DotSettings]
+indent_style = none
+trim_trailing_whitespace = false
+
+[nuget.config]
+indent_size = 2

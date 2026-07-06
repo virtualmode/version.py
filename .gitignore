@@ -1,59 +1,39 @@
-# Solution .gitignore file.
+# Root .gitignore file.
 
 # Apple macOS.
 *.DS_Store
 
 # Microsoft Windows.
-desktop.ini
 [Tt]humbs.db
+desktop.ini
 
-# Regular development files.
-*.d
-*.gch
-*.i
-*.ilk
-*.iobj
-*.ipdb
-*.log
-*.mdb
-*.nupkg
-*.o
-*.obj
-*.pch
-*.pdb
-*.rsp
-*.sbr
-*.stackdump
-*.tlh
-*.tli
-
-# SQL Server files.
-*.mdf
-*.ldf
-
-# .NET CLI files.
-bin/
-obj/
-[Dd]ebug/
-[Rr]elease/
+# Team Foundation Server and TeamCity.
+$tf/
+_TeamCity*
 
 # Microsoft Visual Studio.
-.vs/
-ipch/
-packages/
 Settings.StyleCop
+StyleCopReport.xml
+.vs/
+.env
+.env.*
 *.aps
-*.cache
 *.cachefile
+*.coverage
+*.coveragexml
 *.csproj.csdat
-*.DotSettings.user
+*.e2e
+*.gpState
 *.ipch
+*.meta
 *.ncb
 *.opendb
 *.opensdf
 *.opt
+*.pidb
 *.plg
 *.psess
+*.rsuser
 *.sap
 *.scc
 *.sdf
@@ -62,16 +42,119 @@ Settings.StyleCop
 *.svclog
 *.user
 *.userosscache
+*.userprefs
 *.VC.db
 *.VC.opendb
+*.vsix
 *.vsp
 *.vspscc
 *.vspx
 *.vssscc
+# NVidia Nsight GPU debugger configuration file.
+*.nvuser
+# Visual Studio cache files ending in .cache can be ignored, but keep track of directories ending.
+*.[Cc]ache
+!?*.[Cc]ache/
 
+# Backup and report files.
+_UpgradeReport_Files/
+Backup*/
+ServiceFabricBackup/
+UpgradeLog*.XML
+UpgradeLog*.htm
+*.rptproj.bak
+
+# Visual Studio Code.
+.history/
+
+# JetBrains environment.
 # IntelliJ IDEA uses its own .gitignore file in .idea folder.
+_ReSharper*/
+dotCover.Output/
+dotCover.Output.html
+*.[Rr]e[Ss]harper
+*.dotCover
+*.DotSettings.user
+
+# C/C++ and .NET tools.
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+[Xx]86/
+[Xx]64/
+[Aa][Mm][Dd]64/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Aa][Rr][Mm]64[Ee][Cc]/
+[Ww][Ii][Nn]32/
+[Ww][Ii][Nn]64/
+artifacts/
+BenchmarkDotNet.Artifacts/
+bld/
+ipch/
+packages/
+project.lock.json
+project.fragment.lock.json
+ScaffoldingReadMe.txt
+*.d
+*.gch
+*.i
+*.ilk
+*.iobj
+*.ipdb
+*.log
+*.mdb
+*.nuget.props
+*.nuget.targets
+*.nupkg
+*.snupkg
+*.o
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.sbr
+*.stackdump
+*.tlb
+*.tlh
+*.tli
+*.tlog
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+# MSBuild response.
+*.rsp
+!Directory.Build.rsp
+
+# Python tools.
+*.pyc
+**/__pycache__/
+
+# Node.js tools.
+node_modules/
+.awcache/
+.ntvs_analysis.dat
+
+# SQL Server files.
+*.ldf
+*.mdf
+*.ndf
+
+# Unit testing.
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+nunit-*.xml
+TestResult.xml
+TestResult.txt
+*.trx
+*.VisualState.xml
 
 # Project-specific files.
 .version*
-
-# Exclusions.

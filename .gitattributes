@@ -1,0 +1,13 @@
+# Root .gitattributes file.
+
+# Binary data types.
+*.exe binary
+
+# Force scripts to always use appropriate line endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+
+# Exclude files from GitHub Linguist analysis.
+*.htm linguist-detectable=false
+*.html linguist-detectable=false
