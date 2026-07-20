@@ -16,6 +16,32 @@
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "C#: Run current file",
+      "group": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "run",
+        "${file}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "C#: Run unit tests",
+      "type": "shell",
+      "command": "dotnet run Version.Tests.cs",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "dependsOn": [
+        "C#: Build current file"
+      ]
     }
   ]
 }

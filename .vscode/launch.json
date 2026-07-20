@@ -5,17 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "C#: Version.cs file",
-      "type": "dotnet",
-      "request": "launch",
-      "projectPath": "${workspaceFolder}/Version.cs"
-    },
-    {
       "name": "C#: Current file",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "C#: Build current file",
       "program": "${env:TEMP}/dotnet/runfile/${fileBasenameNoExtension}.dll",
+      "args": ["-l t"],
       "cwd": "${fileDirname}",
       "console": "integratedTerminal"
     },
@@ -28,6 +23,12 @@
       "args": "${input:debugArgs}",
       "cwd": "${fileDirname}",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "C#: Version.cs file",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/Version.cs"
     },
     {
       "name": "Python: Current file with arguments",
