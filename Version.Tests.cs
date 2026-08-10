@@ -81,7 +81,7 @@ public class VersionTests
     public void Compare()
     {
         // Arrange.
-        Version alpha = new(1, 0, 0, null, "alpha"),
+        Version? alpha = new(1, 0, 0, null, "alpha"),
             alpha1 = new(1, 0, 0, null, "alpha.1"),
             alphaBeta = new(1, 0, 0, null, "alpha.beta"),
             beta = new(1, 0, 0, null, "beta"),
@@ -92,7 +92,8 @@ public class VersionTests
             second = new(2, 0, 0),
             secondMinor = new(2, 1, 0),
             secondPatch = new(2, 1, 1),
-            assembly = new(1, 2, 3, 4, "gamma");
+            assembly = new(1, 2, 3, 4, "gamma"),
+            nullVersion = null;
 
         // Act.
         // Assert.
@@ -108,6 +109,20 @@ public class VersionTests
         Assert.That(second.Compare(secondMinor, false), Is.EqualTo(-1000));
         Assert.That(secondMinor.Compare(secondPatch, false), Is.EqualTo(-100));
         Assert.That(secondPatch.Compare(assembly, true), Is.EqualTo(8891));
+        // Null checks.
+        Assert.That(nullVersion == null, Is.True);
+        Assert.That(nullVersion != null, Is.False);
+        Assert.That(nullVersion <= null, Is.True);
+        Assert.That(nullVersion >= null, Is.True);
+        Assert.That(nullVersion < null, Is.False);
+        Assert.That(nullVersion > null, Is.False);
+        // Min version checks.
+        Assert.That(Version.Min == nullVersion, Is.True);
+        Assert.That(Version.Min != nullVersion, Is.False);
+        Assert.That(Version.Min <= nullVersion, Is.True);
+        Assert.That(Version.Min >= nullVersion, Is.True);
+        Assert.That(Version.Min < nullVersion, Is.False);
+        Assert.That(Version.Min > nullVersion, Is.False);
     }
 
     [Test]
@@ -117,9 +132,10 @@ public class VersionTests
         Version version = new();
 
         // Act.
-        version.Parse("2.3.1-alpha+0.id.ref.f5f8b1f");
+        bool result = version.Parse("2.3.1-alpha+0.id.ref.f5f8b1f");
 
         // Assert.
+        Assert.That(result, Is.EqualTo(true));
         Assert.That(version.Major, Is.EqualTo(2));
         Assert.That(version.Minor, Is.EqualTo(3));
         Assert.That(version.PatchOrBuild, Is.EqualTo(1));
@@ -129,5 +145,11 @@ public class VersionTests
         Assert.That(version.Id, Is.EqualTo("id"));
         Assert.That(version.Ref, Is.EqualTo("ref"));
         Assert.That(version.Commit, Is.EqualTo("f5f8b1f"));
+
+        // Act.
+        result = version.Parse(string.Empty);
+
+        // Assert.
+        Assert.That(result, Is.EqualTo(false));
     }
 }
